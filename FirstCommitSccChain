@@ -1,0 +1,146 @@
+#include <iostream>
+#include <vector>
+#include <unordered_map>
+#include <stack>
+#include <algorithm>
+
+struct Node {
+    std::string name;
+    std::vector<std::string> adjacent;
+    bool visited = false;
+    int incomingEdges = 0; 
+};
+
+class Graph {
+private:
+    std::unordered_map<std::string, Node> nodes;
+
+public:
+    void addNode(const std::string& name) {
+        if (nodes.find(name) == nodes.end()) {
+            nodes[name].name = name;
+        }
+    }
+
+    void addEdge(const std::string& from, const std::string& to) {
+        nodes[from].adjacent.push_back(to);
+        nodes[to].incomingEdges++; 
+    }
+
+    std::unordered_map<std::string, Node>& getNodes() {
+        return nodes;
+    }
+
+   
+    void resetVisited() {
+        for (auto& node : nodes) {
+            node.second.visited = false;
+        }
+    }
+};
+
+void DFS(Graph& graph, const std::string& start, std::stack<std::string>& finishedStack) {
+    graph.getNodes()[start].visited = true;
+
+    for (const std::string& neighbor : graph.getNodes()[start].adjacent) {
+        if (!graph.getNodes()[neighbor].visited) {
+            DFS(graph, neighbor, finishedStack);
+        }
+    }
+
+    finishedStack.push(start);
+}
+
+void DFSReverse(Graph& graph, const std::string& start, std::vector<std::string>& component) {
+    graph.getNodes()[start].visited = true;
+    component.push_back(start);
+
+    for (const std::string& neighbor : graph.getNodes()[start].adjacent) {
+        if (!graph.getNodes()[neighbor].visited) {
+            DFSReverse(graph, neighbor, component);
+        }
+    }
+}
+
+std::vector<std::vector<std::string>> findStronglyConnectedComponents(Graph& graph) {
+    std::stack<std::string> finishedStack;
+    graph.resetVisited();
+
+    for (auto& pair : graph.getNodes()) {
+        if (!pair.second.visited) {
+            DFS(graph, pair.first, finishedStack);
+        }
+    }
+
+    Graph reversedGraph;
+    for (auto& pair : graph.getNodes()) {
+        reversedGraph.addNode(pair.first); 
+        for (const std::string& neighbor : pair.second.adjacent) {
+            reversedGraph.addEdge(neighbor, pair.first);
+        }
+    }
+
+    graph.resetVisited(); 
+
+    std::vector<std::vector<std::string>> stronglyConnectedComponents;
+    while (!finishedStack.empty()) {
+        std::string node = finishedStack.top();
+        finishedStack.pop();
+
+        if (!reversedGraph.getNodes()[node].visited) {
+            std::vector<std::string> component;
+            DFSReverse(reversedGraph, node, component);
+            stronglyConnectedComponents.push_back(component);
+        }
+    }
+
+    return stronglyConnectedComponents;
+}
+
+bool isProcessLinear(const Graph& graph) {
+    int startNodes = 0, endNodes = 0;
+    for (const auto& node : graph.getNodes()) {
+        if (node.second.adjacent.empty()) endNodes++; 
+        if (node.second.incomingEdges == 0) startNodes++; 
+    }
+
+   
+    return startNodes == 1 && endNodes == 1;
+}
+
+int main() {
+    int N, M;
+    std::cout << "Enter the number of stages (N): ";
+    std::cin >> N;
+    Graph graph;
+
+    std::cout << "Enter the names of stages:" << std::endl;
+    for (int i = 0; i < N; ++i) {
+        std::string stage;
+        std::cin >> stage;
+        graph.addNode(stage);
+    }
+
+    std::cout << "Enter the number of possible transitions (M): ";
+    std::cin >> M;
+    std::cout << "Enter the transitions in the format 'from to':" << std::endl;
+
+    for (int i = 0; i < M; ++i) {
+        std::string from, to;
+        std::cin >> from >> to;
+        graph.addEdge(from, to);
+    }
+
+    std::vector<std::vector<std::string>> stronglyConnectedComponents = findStronglyConnectedComponents(graph);
+
+    std::cout << "Irreversible stages:" << std::endl;
+    for (const auto& component : stronglyConnectedComponents) {
+        if (component.size() == 1 && graph.getNodes()[component[0]].adjacent.size() == 0) {
+            std::cout << component[0] << std::endl;
+        }
+    }
+
+    std::cout << "Is the production process linear? " << (isProcessLinear(graph) ? "Yes" : "No") << std::endl;
+
+    return 0;
+}
